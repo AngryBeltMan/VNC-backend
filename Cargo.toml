@@ -1,0 +1,18 @@
+[package]
+name = "vnc-backend"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-channel = "1.8.0"
+async-mutex = "1.4.0"
+axum = { version = "0.6.10", features = ["ws","tokio"] }
+base64 = "0.21.0"
+futures = "0.3.27"
+futures-util = "0.3.27"
+lazy_static = "1.4.0"
+tokio = { version = "1.26.0", features = ["full","sync"] }
+tokio-tungstenite = "0.18.0"
+tower-http = { version = "0.4.0", features = ["cors"] }
