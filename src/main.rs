@@ -1,6 +1,8 @@
-use std::{net::SocketAddr, fmt::format};
+use std::{
+    net::SocketAddr,
+    collections::HashMap,
+};
 use async_channel;
-use tokio::sync::mpsc;
 use futures::{stream::{self as future_stream,Stream}, StreamExt, SinkExt};
 use async_mutex::Mutex;
 use tower_http::cors::CorsLayer;
@@ -11,111 +13,78 @@ use axum::{
     Router, http::{HeaderValue, Method},
 };
 use std::sync::Arc;
-struct SharedState {
-    sender:async_channel::Sender<Vec<u8>>,
-    receiver:Mutex<async_channel::Receiver<Vec<u8>>>,
-    keyboard_sender:async_channel::Sender<String>,
-    keyboard_receiver:Mutex<async_channel::Receiver<String>>,
+pub struct SharedState {
+    sender:Mutex<HashMap<String,Arc<async_channel::Sender<Vec<u8>>>>>,
+    receiver:Mutex<HashMap<String,Arc<Mutex<async_channel::Receiver<Vec<u8>>>>>>,
+    keyboard_sender:Mutex<HashMap<String,Arc<async_channel::Sender<String>>>>,
+    keyboard_receiver:Mutex<HashMap<String,Arc<Mutex<async_channel::Receiver<String>>>>>,
 }
+mod keyboard_ws;
+mod keyboard_ws_client;
+mod frames_ws;
+mod delete_server;
+
 #[tokio::main]
 async fn main() {
-    let (sender,receiver) = async_channel::bounded(1);
-    let (keyboard_sender,keyboard_receiver) = async_channel::unbounded();
+    // let (sender,receiver) = async_channel::bounded(1);
     let app_state = Arc::new(SharedState {
-        sender,
-        keyboard_sender,
-        receiver:Mutex::new(receiver),
-        keyboard_receiver:Mutex::new(keyboard_receiver),
+        sender:Mutex::new(HashMap::new()),
+        receiver:Mutex::new(HashMap::new()),
+        keyboard_sender:Mutex::new(HashMap::new()),
+        keyboard_receiver:Mutex::new(HashMap::new()),
     });
 
     let app = Router::new()
-        .route("/ws",get(ws_handler))
-        .route("/ws/frames",get(frames_ws_handler))
-        .route("/ws/keyboard",get(keyboard_websocket_handler))
-        .route("/ws/client/keyboard",get(keyboard_ws_client_handler))
+        .route("/ws/:code",get(ws_handler))
+        .route("/ws/frames/:code",get(frames_ws::frames_ws_handler))
+        .route("/ws/keyboard/:code",get(keyboard_ws::keyboard_websocket_handler))
+        .route("/ws/client/keyboard/:code",get(keyboard_ws_client::keyboard_ws_client_handler))
+        .route("/delete/server/:code",get(delete_server::delete_server))
         .with_state(app_state)
         .layer(
             CorsLayer::new()
             .allow_origin("*".parse::<HeaderValue>().unwrap())
             .allow_methods([Method::GET,Method::POST])
         );
-    let addr = SocketAddr::from(([127,0,0,1],8080));
+    let addr = SocketAddr::from(([127,0,0,1],6969));
     println!("listening on address {}",&addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await.unwrap();
 }
-async fn keyboard_websocket_handler(ws:WebSocketUpgrade,State(state):State<Arc<SharedState>>) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| keyboard_websocket(socket,state))
-}
-async fn keyboard_websocket(mut socket:WebSocket,state:Arc<SharedState>) {
-    while let Some(o) = socket.recv().await {
-        if let Ok(o) = o {
-            match o {
-                Message::Text(text) => {
-                    println!("recieved text");
-                    if state.keyboard_sender.send(text).await.is_err() {
-                        println!("could not send text");
-                    } else {
-                        println!("sent text");
-                    }
-                },
-                _ => {}
-            }
-        }
+async fn ws_handler(
+    ws:WebSocketUpgrade,
+    Path(code): Path<String>,
+    State(state):State<Arc<SharedState>>
+    ) -> impl IntoResponse {
+    if !state.sender.lock().await.contains_key(&code) {
+        let (sender,reciever) = async_channel::bounded(1);
+        state.sender.lock().await.insert(code.clone(), sender.into());
+        state.receiver.lock().await.insert(code.clone(), Arc::new(Mutex::new(reciever)));
+        println!("new ws handler inserted");
     }
-}
-async fn keyboard_ws_client_handler(ws:WebSocketUpgrade,State(state):State<Arc<SharedState>>) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| keyboard_ws_client(socket,state))
-}
-async fn keyboard_ws_client(mut socket:WebSocket,state:Arc<SharedState>) {
-    loop {
-        if let Ok(movement) = state.keyboard_receiver.lock().await.recv().await {
-            println!("client recieved text");
-           if socket.send(Message::Text(movement)).await.is_err() {println!("error in function frame socket")}
-        } else {
-            println!("client could not recieve text");
-        }
-    }
-}
-async fn ws_handler(ws:WebSocketUpgrade,State(state):State<Arc<SharedState>>) -> impl IntoResponse{
-    ws.on_upgrade(move |socket| handle_socket(socket,state))
+    ws.on_upgrade(move |socket| handle_socket(socket,state,code))
 }
 
-async fn frames_ws_handler(ws:WebSocketUpgrade,State(state):State<Arc<SharedState>>) -> impl IntoResponse{
-    ws.on_failed_upgrade(|_| println!("failed to upgrade")).on_upgrade(move |socket| frames_socket(socket,state))
-}
-
-async fn frames_socket(mut socket:WebSocket,state:Arc<SharedState>) {
-    if let Ok(frames) = state.receiver.lock().await.recv().await {
-       if socket.send(Message::Binary(frames)).await.is_err() {println!("error in function frame socket")}
-    }
-}
-async fn handle_socket(mut socket:WebSocket,state:Arc<SharedState>) {
+async fn handle_socket(mut socket:WebSocket,state:Arc<SharedState>,code:String) {
+    println!("new handle socket");
+    let sender = Arc::clone(&state.sender.lock().await.get(&code).unwrap());
     while let Some(o) = socket.recv().await {
-        println!("recieved data");
         if let Ok(o) = o {
             match o {
                 Message::Text(_) => {
-                    println!("set text");
-                    // *state.frame_buffer.lock().await = Some(text);
                 },
                 Message::Binary(b) => {
-                    println!("set data");
-                    if state.sender.try_send(b).is_err() {
-                        println!("Error sending data");
-                        continue;
+                    let res = sender.try_send(b);
+                    if  res.is_err() {
+                        println!("Error sending data {:?}",res);
+                        break;
                     }
-                },
-                Message::Ping(_) => {
-                    println!("Ping")
-                },
-                Message::Pong(_) => {
-                    println!("Pong")
                 },
                 Message::Close(_) => {
                     return;
                 },
+                _ => {}
             }
         } else {
             println!("{o:?}");
