@@ -39,7 +39,7 @@ async fn main() {
             .allow_origin("*".parse::<HeaderValue>().unwrap())
             .allow_methods([Method::GET,Method::POST])
         );
-    let addr = SocketAddr::from(([127,0,0,1],6969));
+    let addr = SocketAddr::from(([127,0,0,1],8080));
     println!("listening on address {}",&addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
