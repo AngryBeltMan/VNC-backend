@@ -13,7 +13,7 @@ pub async fn keyboard_ws_client_handler(
     ) -> impl IntoResponse {
     if !state.keyboard_receiver.lock().await.contains_key(&code) {
         println!("insert keyboard ws client");
-        let (sender,receiver) = async_channel::unbounded();
+        let (sender,receiver) = async_channel::bounded(5);
         state.keyboard_receiver.lock().await.insert(code.clone(),Arc::new(Mutex::new(receiver)));
         state.keyboard_sender.lock().await.insert(code.clone(),Arc::new(sender));
     }
