@@ -13,6 +13,8 @@ base64 = "0.21.0"
 futures = "0.3.27"
 futures-util = "0.3.27"
 lazy_static = "1.4.0"
+shuttle-axum = "0.13.0"
+shuttle-runtime = "0.13.0"
 tokio = { version = "1.26.0", features = ["full","sync"] }
 tokio-tungstenite = "0.18.0"
 tower-http = { version = "0.4.0", features = ["cors"] }
