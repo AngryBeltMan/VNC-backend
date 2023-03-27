@@ -35,6 +35,7 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
     });
 
     let app = Router::new()
+        .route("",get(home))
         .route("/ws/:code",get(ws_handler))
         .route("/ws/frames/:code",get(frames_ws::frames_ws_handler))
         .route("/ws/keyboard/:code",get(keyboard_ws::keyboard_websocket_handler))
@@ -53,6 +54,9 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
     //     .serve(app.into_make_service_with_connect_info::<SocketAddr>())
     //     .await.unwrap();
 }
+async fn home() -> String {
+    String::from("version 0.1.0")
+}
 async fn ws_handler(
     ws:WebSocketUpgrade,
     Path(code): Path<String>,
@@ -70,28 +74,26 @@ async fn ws_handler(
 async fn handle_socket(mut socket:WebSocket,state:Arc<SharedState>,code:String) {
     println!("new handle socket");
     let sender = Arc::clone(&state.sender.lock().await.get(&code).unwrap());
-    loop {
-        if let Some(o) = socket.recv().await {
-            if let Ok(o) = o {
-                match o {
-                    Message::Text(_) => {
-                    },
-                    Message::Binary(b) => {
-                        let res = sender.try_send(b);
-                        if  res.is_err() {
-                            let error = format!("{:?}",res);
-                            println!("Error sending data {error}");
-                            if error.contains("full") { continue; } else { break; } }
-                    },
-                    Message::Close(_) => {
-                        return;
-                    },
-                    _ => {}
-                }
-            } else {
-                println!("{o:?}");
-                return;
+    while let Some(o) = socket.recv().await {
+        if let Ok(o) = o {
+            match o {
+                Message::Text(_) => {
+                },
+                Message::Binary(b) => {
+                    let res = sender.try_send(b);
+                    if  res.is_err() {
+                        let error = format!("{:?}",res);
+                        println!("Error sending data {error}");
+                        if error.contains("full") { continue; } else { break; } }
+                },
+                Message::Close(_) => {
+                    return;
+                },
+                _ => {}
             }
+        } else {
+            println!("{o:?}");
+            return;
         }
     }
 }

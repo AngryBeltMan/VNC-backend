@@ -26,18 +26,16 @@ pub async fn frames_socket(
     code:String
     ) {
     let receiver = Arc::clone(&state.receiver.lock().await.get(&code).unwrap());
-    loop {
-        if let Ok(frames) = receiver.lock().await.recv().await {
-           let res = socket.send(Message::Binary(frames)).await;
-           if  res.is_err() {
-               let error = format!("{:?}",res);
-               println!("error in frames socket {error}");
-               if error.contains("pipe") {
-                   return;
-               }
-           } else {
-               println!("sent");
+    while let Ok(frames) = receiver.lock().await.recv().await {
+       let res = socket.send(Message::Binary(frames)).await;
+       if  res.is_err() {
+           let error = format!("{:?}",res);
+           println!("error in frames socket {error}");
+           if error.contains("pipe") {
+               return;
            }
-        }
+       } else {
+           println!("sent");
+       }
     }
 }
