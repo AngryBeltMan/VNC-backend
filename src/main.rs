@@ -35,7 +35,7 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
     });
 
     let app = Router::new()
-        .route("",get(home))
+        .route("/",get(home))
         .route("/ws/:code",get(ws_handler))
         .route("/ws/frames/:code",get(frames_ws::frames_ws_handler))
         .route("/ws/keyboard/:code",get(keyboard_ws::keyboard_websocket_handler))
