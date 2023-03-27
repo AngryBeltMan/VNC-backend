@@ -70,26 +70,28 @@ async fn ws_handler(
 async fn handle_socket(mut socket:WebSocket,state:Arc<SharedState>,code:String) {
     println!("new handle socket");
     let sender = Arc::clone(&state.sender.lock().await.get(&code).unwrap());
-    while let Some(o) = socket.recv().await {
-        if let Ok(o) = o {
-            match o {
-                Message::Text(_) => {
-                },
-                Message::Binary(b) => {
-                    let res = sender.try_send(b);
-                    if  res.is_err() {
-                        let error = format!("{:?}",res);
-                        println!("Error sending data {error}");
-                        if error.contains("full") { continue; } else { break; } }
-                },
-                Message::Close(_) => {
-                    return;
-                },
-                _ => {}
+    loop {
+        if let Some(o) = socket.recv().await {
+            if let Ok(o) = o {
+                match o {
+                    Message::Text(_) => {
+                    },
+                    Message::Binary(b) => {
+                        let res = sender.try_send(b);
+                        if  res.is_err() {
+                            let error = format!("{:?}",res);
+                            println!("Error sending data {error}");
+                            if error.contains("full") { continue; } else { break; } }
+                    },
+                    Message::Close(_) => {
+                        return;
+                    },
+                    _ => {}
+                }
+            } else {
+                println!("{o:?}");
+                return;
             }
-        } else {
-            println!("{o:?}");
-            return;
         }
     }
 }

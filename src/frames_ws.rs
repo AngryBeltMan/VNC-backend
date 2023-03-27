@@ -26,7 +26,6 @@ pub async fn frames_socket(
     code:String
     ) {
     let receiver = Arc::clone(&state.receiver.lock().await.get(&code).unwrap());
-    // while let Ok(frames) = receiver.lock().await.recv().await  {
     loop {
         if let Ok(frames) = receiver.lock().await.recv().await {
            let res = socket.send(Message::Binary(frames)).await;
