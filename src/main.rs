@@ -77,9 +77,9 @@ async fn handle_socket(mut socket:WebSocket,state:Arc<SharedState>,code:String) 
                 Message::Binary(b) => {
                     let res = sender.try_send(b);
                     if  res.is_err() {
-                        println!("Error sending data {:?}",res);
-                        break;
-                    }
+                        let error = format!("{:?}",res);
+                        println!("Error sending data {error}");
+                        if error.contains("full") { continue; } else { break; } }
                 },
                 Message::Close(_) => {
                     return;

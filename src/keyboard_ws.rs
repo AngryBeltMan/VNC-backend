@@ -24,12 +24,19 @@ pub async fn keyboard_websocket(mut socket:WebSocket,state:Arc<SharedState>,code
         if let Ok(o) = o {
             match o {
                 Message::Text(text) => {
+                        println!("{}",&text);
                     if sender.send(text).await.is_err() {
-                        println!("could not send text");
+                        println!("success");
+                    } else {
+                        println!("sent command");
                     }
                 },
                 _ => {}
             }
+        } else {
+            return;
         }
     }
 }
+
+
