@@ -63,7 +63,7 @@ async fn ws_handler(
     State(state):State<Arc<SharedState>>
     ) -> impl IntoResponse {
     if !state.sender.lock().await.contains_key(&code) {
-        let (sender,reciever) = async_channel::unbounded();
+        let (sender,reciever) = async_channel::bounded(1);
         state.sender.lock().await.insert(code.clone(), sender.into());
         state.receiver.lock().await.insert(code.clone(), Arc::new(Mutex::new(reciever)));
         println!("new ws handler inserted");
