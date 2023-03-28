@@ -29,11 +29,7 @@ pub async fn frames_socket(
     while let Ok(frames) = receiver.lock().await.recv().await {
        let res = socket.send(Message::Binary(frames)).await;
        if  res.is_err() {
-           let error = format!("{:?}",res);
-           println!("error in frames socket {error}");
-           if error.contains("pipe") {
-               return;
-           }
+           return;
        } else {
            println!("sent");
        }
