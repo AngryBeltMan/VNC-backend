@@ -24,8 +24,7 @@ mod keyboard_ws_client;
 mod frames_ws;
 mod delete_server;
 
-#[shuttle_runtime::main]
-async fn axum() -> shuttle_axum::ShuttleAxum {
+async fn main() {
     // let (sender,receiver) = async_channel::bounded(1);
     let app_state = Arc::new(SharedState {
         sender:Mutex::new(HashMap::new()),
@@ -47,12 +46,11 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
             .allow_origin("*".parse::<HeaderValue>().unwrap())
             .allow_methods([Method::GET,Method::POST])
         );
-    Ok(app.into())
-    // let addr = SocketAddr::from(([127,0,0,1],6969));
-    // println!("listening on address {}",&addr);
-    // axum::Server::bind(&addr)
-    //     .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-    //     .await.unwrap();
+    let addr = SocketAddr::from(([127,0,0,1],8080));
+    println!("listening on address {}",&addr);
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+        .await.unwrap();
 }
 async fn home() -> String {
     String::from("version 0.1.0")
