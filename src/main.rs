@@ -80,7 +80,7 @@ async fn handle_socket(mut socket:WebSocket,state:Arc<SharedState>,code:String) 
                 Message::Text(_) => {
                 },
                 Message::Binary(b) => {
-                    let res = sender.try_send(b).await;
+                    let res = sender.try_send(b);
                     if  res.is_err() {
                         let error = format!("{:?}",res);
                         println!("Error sending data {error}");
