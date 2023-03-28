@@ -11,7 +11,7 @@ pub async fn frames_ws_handler(
     Path(code): Path<String>
     ) -> impl IntoResponse{
     if !state.sender.lock().await.contains_key(&code) {
-        let (sender,reciever) = async_channel::bounded(1);
+        let (sender,reciever) = async_channel::unbounded();
         state.sender.lock().await.insert(code.clone(), sender.into());
         state.receiver.lock().await.insert(code.clone(), Arc::new(Mutex::new(reciever)));
         println!("new ws handler inserted");
